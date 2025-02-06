@@ -1,0 +1,10 @@
+#pragma once
+
+// Human-readable version number (e.g., 1.0.0)
+#define APP_VERSION "@PROJECT_VERSION@"
+
+// Build number based on the commit count
+#define BUILD_NUMBER "@BUILD_NUMBER@"
+
+// Short Git commit hash (e.g., abcdef1)
+#define GIT_COMMIT_SHORT "@GIT_COMMIT_SHORT@"

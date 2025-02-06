@@ -1,0 +1,129 @@
+name: Build and Release dpset (Ubuntu, AppImage)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Check out the repository.
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      # 2. Install Qt.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          host: linux
+          target: desktop
+          version: '6.5.0'
+
+      # 3. Install required dependencies.
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            fuse \
+            libfuse2 \
+            patchelf \
+            libxcb-cursor0 \
+            libxcb-randr0-dev \
+            libxcb-xtest0-dev \
+            libxcb-xinerama0-dev \
+            libxcb-shape0-dev \
+            libxcb-xkb-dev \
+            libxcb-image0 \
+            libxcb-render-util0 \
+            libxcb-icccm4 \
+            libxkbcommon-x11-0 \
+            libatomic1 \
+            libxcb-keysyms1
+
+      # 4. Configure the project with CMake (using the version defined in CMakeLists.txt).
+      - name: Configure (CMake - Release)
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+        # The project version is taken from CMakeLists.txt, not passed from the workflow.
+
+      # 5. Build the project.
+      - name: Build (CMake)
+        run: cmake --build build --config Release --verbose
+
+      # 6. Extract APP_VERSION from the generated header file.
+      - name: Extract version from generated header
+        id: extract_version
+        run: |
+          if [ -f build/version.h ]; then
+            # Extract the version string from the line: #define APP_VERSION "x.y.z"
+            APP_VERSION=$(grep '^#define APP_VERSION' build/version.h | sed 's/.*"\(.*\)".*/\1/')
+            echo "Extracted APP_VERSION: $APP_VERSION"
+            echo "APP_VERSION=$APP_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Error: build/version.h not found!"
+            exit 1
+          fi
+
+      # 7. Download linuxdeploy and the Qt plugin.
+      - name: Download linuxdeploy + Qt plugin
+        run: |
+          wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+
+          wget https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-qt-x86_64.AppImage
+
+      # 8. Create AppDir and build AppImage (using the extracted APP_VERSION).
+      - name: Create AppDir and build AppImage
+        env:
+          APP_VERSION: ${{ steps.extract_version.outputs.APP_VERSION }}
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp build/dpset AppDir/usr/bin/
+
+          # Create a minimal .desktop file.
+          echo "[Desktop Entry]"                         >  AppDir/usr/share/applications/dpset.desktop
+          echo "Type=Application"                        >> AppDir/usr/share/applications/dpset.desktop
+          echo "Name=dpset"                              >> AppDir/usr/share/applications/dpset.desktop
+          echo "Exec=dpset"                              >> AppDir/usr/share/applications/dpset.desktop
+          echo "Icon=app_icon"                           >> AppDir/usr/share/applications/dpset.desktop
+          echo "Categories=Utility;"                     >> AppDir/usr/share/applications/dpset.desktop
+
+          cp assets/app_icon.png AppDir/usr/share/icons/hicolor/256x256/apps/app_icon.png
+
+          # Set linuxdeploy output version using the extracted APP_VERSION.
+          export LINUXDEPLOY_OUTPUT_VERSION="dpset-${APP_VERSION}"
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
+          
+          echo "Listing all .AppImage files in the current directory:"
+          ls -l *.AppImage || echo "No .AppImage files found"
+          
+          echo "Renaming any file containing 'dpset' and ending with '.AppImage' to 'dpset.AppImage':"
+          mv ./*dpset*.AppImage dpset.AppImage
+          
+          ls -l
+
+      # 9. Upload the AppImage as an artifact.
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dpset-AppImage
+          path: dpset.AppImage
+
+      # 10. Create the GitHub Release using the extracted APP_VERSION.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: dpset-${{ steps.extract_version.outputs.APP_VERSION }}
+          name: "dpset Release ${{ steps.extract_version.outputs.APP_VERSION }}"
+          draft: false
+          prerelease: false
+          files: dpset.AppImage
+

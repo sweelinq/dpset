@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>assets/data_object.svg</file>
+        <file>assets/data_check.svg</file>
+        <file>assets/info.svg</file>
+        <file>assets/app_icon.svg</file>
+    </qresource>
+</RCC>
