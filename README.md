@@ -28,7 +28,8 @@ The application can also generate a shell script to make monitor setups easily r
   - **Orientation**: Rotate the display (normal, left, right, inverted).  
   - **Touch Device Mapping**: Map a detected **xinput** device to a particular monitor.
     
-  <img width="799" alt="screenshot" src="https://github.com/user-attachments/assets/e714c7bb-6679-46bb-be0e-bcaf0743123f" />
+  <img width="799" alt="screenshot" src="https://github.com/user-attachments/assets/53661604-7ef9-41d7-8586-5309e37b2c03" />
+
   
 - :arrow_double_up: **Apply or Save**  
   - **Apply**: Immediately apply xrandr/xinput changes (non-persistent).  
