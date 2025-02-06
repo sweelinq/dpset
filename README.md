@@ -15,7 +15,6 @@ The application can also generate a shell script to make monitor setups easily r
 - [Running](#running)
 - [Usage](#usage)
 - [Notes](#notes)
-- [License](#license)
 
 ---
 
@@ -23,15 +22,17 @@ The application can also generate a shell script to make monitor setups easily r
 - :computer: **Visual Monitor Layout**  
   Drag and drop monitors in a 2D scene. They snap to each other when close.
 - :gear: **Context Menu**  
-  - **Identify**: Temporarily shows a big label on the physical screen.  
+  - **Identify**: Temporarily shows an overlay on the physical screen.  
   - **Primary**: Mark a specific monitor as the primary display.  
   - **Resolution**: Select from known resolutions or set a custom resolution.  
   - **Orientation**: Rotate the display (normal, left, right, inverted).  
   - **Touch Device Mapping**: Map a detected **xinput** device to a particular monitor.
+    
+  <img width="799" alt="screenshot" src="https://github.com/user-attachments/assets/e714c7bb-6679-46bb-be0e-bcaf0743123f" />
+  
 - :arrow_double_up: **Apply or Save**  
   - **Apply**: Immediately apply xrandr/xinput changes (non-persistent).  
   - **Script**: Save the configuration as a shell script for easy replication at startup.
-<img width="799" alt="screenshot" src="https://github.com/user-attachments/assets/e714c7bb-6679-46bb-be0e-bcaf0743123f" />
 
 ---
 
@@ -105,8 +106,55 @@ If no monitors are detected, an error is shown.
 4. **Script**  
 - Click **Script** to generate a shell script containing all relevant commands.  
 - Run this script manually or integrate it into your startup routine (e.g., `~/.profile`, `~/.xinitrc`, or desktop environment services) to restore the layout after reboot.
-5. **Info**  
-- Click **Info** to see help text and the application version.
+
+An example of a generated script:
+```bash
+#!/bin/bash
+
+xrandr --output HDMI-2 --mode 1600x720 --pos 3840x1440 --rotate normal --output HDMI-1 --mode 3840x2160 --pos 0x0 --rotate normal
+
+find_xinput_device() {
+    local target_id_path="$(echo "$1" | xargs)"
+    local target_name="$(echo "$2" | xargs)"
+    for id in $(xinput list --id-only); do
+        local node_line
+        node_line=$(xinput list-props "$id" 2>/dev/null | grep "Device Node")
+        if [ -z "$node_line" ]; then
+            continue
+        fi
+        local device_node
+        device_node=$(echo "$node_line" | sed -n 's/.*"\(\/dev\/input\/[^\"]*\)".*/\1/p')
+        if [ -z "$device_node" ]; then
+            continue
+        fi
+        local udev_line
+        udev_line=$(udevadm info "$device_node" 2>/dev/null | grep "E: ID_PATH=")
+        if [ -z "$udev_line" ]; then
+            continue
+        fi
+        local id_path_value
+        id_path_value=$(echo "$udev_line" | cut -d'=' -f2 | xargs)
+        if [ "$id_path_value" = "$target_id_path" ]; then
+            local dev_name
+            dev_name=$(xinput list --name-only "$id" | xargs)
+            if [ "$dev_name" = "$target_name" ]; then
+                echo "$id"
+                return 0
+            fi
+        fi
+    done
+    echo "-1"
+    return 1
+}
+
+#Touch mapping for HDMI-2
+DEVICE_ID=$(find_xinput_device "pci-0000:00:14.0-usb-0:1:1.0" "Waveshare  Waveshare")
+if [ "$DEVICE_ID" -eq "-1" ]; then
+    echo "DEBUG: Could not find touch device for HDMI-2 with id_path pci-0000:00:14.0-usb-0:1:1.0 and name Waveshare  Waveshare" >&2
+else
+    xinput set-prop $DEVICE_ID 'Coordinate Transformation Matrix' 0.29411765 0 0.70588235 0 0.33333333 0.66666667 0 0 1
+fi
+```
 
 ---
 
