@@ -43,10 +43,9 @@ jobs:
             libatomic1 \
             libxcb-keysyms1
 
-      # 4. Configure the project with CMake (using the version defined in CMakeLists.txt).
+      # 4. Configure the project with CMake.
       - name: Configure (CMake - Release)
         run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-        # The project version is taken from CMakeLists.txt, not passed from the workflow.
 
       # 5. Build the project.
       - name: Build (CMake)

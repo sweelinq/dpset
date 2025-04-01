@@ -77,8 +77,6 @@ void MainWindow::createToolbar()
   toolbar->addAction(infoAction);
 }
 
-#include "version.h"  // Zorg dat je dit include, zodat de defines beschikbaar zijn
-
 void MainWindow::showInfo()
 {
   QString infoText = tr(
